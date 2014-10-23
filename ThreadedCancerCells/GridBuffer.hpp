@@ -146,8 +146,10 @@ namespace TCC
 			return true;
 		}
 
-		void computeCancer(const int x, const int y, std::array<unsigned int, 4> &counter)
+		void computeCancer(const int x, const int y/*, std::array<unsigned int, 4> &counter*/)
 		{
+			static std::array<unsigned int, 4> counter;
+
 			auto a = 0;
 			auto index = y * _width + x;
 			// H -> C

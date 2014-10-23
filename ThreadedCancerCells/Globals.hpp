@@ -27,7 +27,6 @@ namespace TCC
 	int cancerPercent = 45;
 	int healthyPercent = 30;
 
-	int threadNumber = 4;
 	bool running;
 
 	float zoom = 1.0f;
@@ -36,10 +35,10 @@ namespace TCC
 
 	MedecineManager *medecineManager;
 
-	std::vector<std::unique_ptr<TCC::WorkerThread>> workerThreads;
-
 	typedef glm::uvec2 Position;
 	typedef glm::uvec3 Color;
+
+	int grainSize = 100;
 
 	static std::array<unsigned int, 4> Counter;
 }

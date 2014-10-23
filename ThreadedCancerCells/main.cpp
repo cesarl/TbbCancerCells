@@ -6,27 +6,8 @@
 #include "GridBuffer.hpp"
 #include "WorkerThread.hpp"
 
-void initThreads()
-{
-	if ((unsigned int)TCC::threadNumber > TCC::workerThreads.size())
-	{
-		auto d = TCC::workerThreads.size();
-		TCC::workerThreads.resize(TCC::threadNumber);
-		for (int i = d; i < TCC::threadNumber; ++i)
-		{
-			TCC::workerThreads[i] = std::make_unique<TCC::WorkerThread>();
-			TCC::workerThreads[i]->launch();
-		}
-	}
-	else if ((unsigned int)TCC::threadNumber < TCC::workerThreads.size())
-	{
-		for (auto i = TCC::workerThreads.size() - 1; i >= (unsigned int)TCC::threadNumber; --i)
-		{
-			TCC::workerThreads[i]->quit();
-		}
-		TCC::workerThreads.resize(TCC::threadNumber);
-	}
-}
+#include <tbb/task_scheduler_init.h>
+#include <tbb/parallel_for.h>
 
 void display()
 {
@@ -34,6 +15,13 @@ void display()
 
 	static bool pause = false;
 	static bool step = false;
+
+	tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [=](const tbb::blocked_range<size_t> &r){
+			for (auto i = r.begin(); i < r.end(); ++i)
+			{
+				TCC::buffer->computeCancer(i % TCC::windowWidth, i / TCC::windowWidth/*, TCC::Counter*/);
+			}
+	});
 
 	//std::vector<std::future<std::array<unsigned int, 4>>> res;
 	//res.resize(TCC::workerThreads.size());
@@ -52,21 +40,21 @@ void display()
 	//	}
 
 
-	//	TCC::Counter[TCC::Medecine] = 0;
-	//	TCC::Counter[TCC::Cancer] = 0;
-	//	TCC::Counter[TCC::None] = 0;
-	//	TCC::Counter[TCC::Healthy] = 0;
+		TCC::Counter[TCC::Medecine] = 0;
+		TCC::Counter[TCC::Cancer] = 0;
+		TCC::Counter[TCC::None] = 0;
+		TCC::Counter[TCC::Healthy] = 0;
 
-	//	for (std::size_t i = 0; i < res.size(); ++i)
-	//	{
-	//		auto t = res[i].get();
-	//		TCC::Counter[0] += t[0];
-	//		TCC::Counter[1] += t[1];
-	//		TCC::Counter[2] += t[2];
-	//		TCC::Counter[3] += t[3];
-	//	}
+		//for (std::size_t i = 0; i < res.size(); ++i)
+		//{
+		//	auto t = res[i].get();
+		//	TCC::Counter[0] += t[0];
+		//	TCC::Counter[1] += t[1];
+		//	TCC::Counter[2] += t[2];
+		//	TCC::Counter[3] += t[3];
+		//}
 
-	//	TCC::buffer->swap();
+		TCC::buffer->swap();
 	//}
 
 	step = false;
@@ -114,9 +102,10 @@ void display()
 		TCC::buffer->randomFill();
 	}
 
-	if (ImGui::SliderInt("Threads number", &TCC::threadNumber, 1, 16))
+	if (ImGui::SliderInt("Grain size", &TCC::grainSize, 1, TCC::windowWidth * TCC::windowHeight))
 	{
-		initThreads();
+		if (TCC::grainSize <= 0)
+			TCC::grainSize = 1;
 	}
 
 	ImGui::SliderFloat("Zoom ", &TCC::zoom, 1, 15);
@@ -162,7 +151,7 @@ void initialize ()
 	glClearColor(1, 1, 1, 1);
 	TCC::displayBuffer = new TCC::Display(TCC::windowWidth, TCC::windowHeight);
 	TCC::buffer = new TCC::GridBuffer(TCC::windowWidth, TCC::windowHeight);
-	initThreads();
+
 	ImguiConf::InitImGui();
 	TCC::buffer->randomFill();
 }
@@ -208,6 +197,9 @@ void passiveMouse(int x, int y)
 int main(int argc, char **argv)
 {
 	// initialize
+
+	tbb::task_scheduler_init initTbb;
+
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH );
 	glutInitWindowSize(TCC::windowWidth, TCC::windowHeight);
@@ -225,7 +217,5 @@ int main(int argc, char **argv)
 	TCC::running = true;
 	delete TCC::displayBuffer;
 	ImGui::Shutdown();
-	for (auto &e : TCC::workerThreads)
-		e->quit();
 	return 0;
 }
