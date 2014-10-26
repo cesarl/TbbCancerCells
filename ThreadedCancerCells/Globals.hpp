@@ -38,7 +38,9 @@ namespace TCC
 	typedef glm::uvec2 Position;
 	typedef glm::uvec3 Color;
 
-	int grainSize = 100;
+	int grainSize = 10000;
+
+	bool count = false;
 
 	static std::array<unsigned int, 4> Counter;
 }

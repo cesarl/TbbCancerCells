@@ -5,6 +5,7 @@
 #include <cassert>
 #include "Display.hpp"
 #include "Globals.hpp"
+#include <tbb/concurrent_vector.h>
 
 namespace TCC
 {
@@ -146,9 +147,10 @@ namespace TCC
 			return true;
 		}
 
-		void computeCancer(const int x, const int y/*, std::array<unsigned int, 4> &counter*/)
+		std::array<unsigned int, 4> computeCancer(const int x, const int y)
 		{
-			static std::array<unsigned int, 4> counter;
+			std::array<unsigned int, 4> counter;
+			counter.fill(0);
 
 			auto a = 0;
 			auto index = y * _width + x;
@@ -213,6 +215,7 @@ namespace TCC
 			{
 				++counter[r];
 			}
+			return counter;
 		}
 
 		void inject(unsigned int cx, unsigned int cy)

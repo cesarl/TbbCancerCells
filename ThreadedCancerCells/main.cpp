@@ -8,6 +8,7 @@
 
 #include <tbb/task_scheduler_init.h>
 #include <tbb/parallel_for.h>
+#include <tbb/concurrent_vector.h>
 
 void display()
 {
@@ -16,46 +17,42 @@ void display()
 	static bool pause = false;
 	static bool step = false;
 
-	tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [=](const tbb::blocked_range<size_t> &r){
+	static tbb::concurrent_vector<std::array<unsigned int, 4>> concurentCounter;
+	concurentCounter.clear();
+
+	TCC::Counter[TCC::Medecine] = 0;
+	TCC::Counter[TCC::Cancer] = 0;
+	TCC::Counter[TCC::None] = 0;
+	TCC::Counter[TCC::Healthy] = 0;
+
+	if (TCC::count)
+	{
+		tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [&](const tbb::blocked_range<size_t> &r){
 			for (auto i = r.begin(); i < r.end(); ++i)
 			{
-				TCC::buffer->computeCancer(i % TCC::windowWidth, i / TCC::windowWidth/*, TCC::Counter*/);
+				concurentCounter.push_back(TCC::buffer->computeCancer(i % TCC::windowWidth, i / TCC::windowWidth));
 			}
-	});
+		});
+		for (auto &e : concurentCounter)
+		{
+			TCC::Counter[0] += e[0];
+			TCC::Counter[1] += e[1];
+			TCC::Counter[2] += e[2];
+			TCC::Counter[3] += e[3];
+		}
+	}
+	else
+	{
+		tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [&](const tbb::blocked_range<size_t> &r){
+			for (auto i = r.begin(); i < r.end(); ++i)
+			{
+				TCC::buffer->computeCancer(i % TCC::windowWidth, i / TCC::windowWidth);
+			}
+		});
+	}
 
-	//std::vector<std::future<std::array<unsigned int, 4>>> res;
-	//res.resize(TCC::workerThreads.size());
+	TCC::buffer->swap();
 
-	//if (!pause || step)
-	//{
-	//	auto range = (unsigned int)std::ceil((float)(TCC::windowWidth * TCC::windowHeight) / (float)TCC::workerThreads.size());
-	//	for (std::size_t i = 0; i < TCC::workerThreads.size(); ++i)
-	//	{
-	//		auto from = range * i;
-	//		auto to = (from + range);
-	//		if (to > TCC::windowWidth * TCC::windowHeight)
-	//			to = TCC::windowWidth * TCC::windowHeight;
-	//		res[i] = TCC::workerThreads[i]->getCommandQueue()
-	//			.priorityFutureEmplace<TCC::WorkerThread::Compute, std::array<unsigned int, 4>>(from, to);
-	//	}
-
-
-		TCC::Counter[TCC::Medecine] = 0;
-		TCC::Counter[TCC::Cancer] = 0;
-		TCC::Counter[TCC::None] = 0;
-		TCC::Counter[TCC::Healthy] = 0;
-
-		//for (std::size_t i = 0; i < res.size(); ++i)
-		//{
-		//	auto t = res[i].get();
-		//	TCC::Counter[0] += t[0];
-		//	TCC::Counter[1] += t[1];
-		//	TCC::Counter[2] += t[2];
-		//	TCC::Counter[3] += t[3];
-		//}
-
-		TCC::buffer->swap();
-	//}
 
 	step = false;
 	TCC::buffer->fillDisplay(*TCC::displayBuffer);
@@ -110,10 +107,14 @@ void display()
 
 	ImGui::SliderFloat("Zoom ", &TCC::zoom, 1, 15);
 
-	ImGui::Text("Healthy cells : %i", TCC::Counter[TCC::Healthy]);
-	ImGui::Text("Cancer cells : %i", TCC::Counter[TCC::Cancer]);
-	ImGui::Text("Medecine cells : %i", TCC::Counter[TCC::Medecine]);
-	ImGui::Text("Empty cells : %i", TCC::Counter[TCC::None]);
+	ImGui::Checkbox("Count cells", &TCC::count);
+	if (TCC::count)
+	{
+		ImGui::Text("Healthy cells : %i", TCC::Counter[TCC::Healthy]);
+		ImGui::Text("Cancer cells : %i", TCC::Counter[TCC::Cancer]);
+		ImGui::Text("Medecine cells : %i", TCC::Counter[TCC::Medecine]);
+		ImGui::Text("Empty cells : %i", TCC::Counter[TCC::None]);
+	}
 
 	if (ImGui::Button("Reset"))
 	{
@@ -142,7 +143,7 @@ void display()
 	glutSwapBuffers();
 }
 
-void initialize ()
+void initialize()
 {
 	glMatrixMode(GL_PROJECTION);
 	glViewport(0, 0, TCC::windowWidth, TCC::windowHeight);
@@ -156,9 +157,9 @@ void initialize ()
 	TCC::buffer->randomFill();
 }
 
-void keyboard ( unsigned char key, int mousePositionX, int mousePositionY )
+void keyboard(unsigned char key, int mousePositionX, int mousePositionY)
 {
-	switch ( key )
+	switch (key)
 	{
 	case 27:
 		glutLeaveMainLoop();
@@ -201,13 +202,13 @@ int main(int argc, char **argv)
 	tbb::task_scheduler_init initTbb;
 
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH );
+	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(TCC::windowWidth, TCC::windowHeight);
 	glutCreateWindow("<3 Threads <3");
 	glutDisplayFunc(display);
-	glutIdleFunc( display );
-	glutKeyboardFunc( keyboard );
-	glutMouseFunc( mouse );
+	glutIdleFunc(display);
+	glutKeyboardFunc(keyboard);
+	glutMouseFunc(mouse);
 	glutPassiveMotionFunc(passiveMouse);
 	glutMotionFunc(passiveMouse);
 	initialize();
