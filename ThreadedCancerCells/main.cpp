@@ -4,7 +4,6 @@
 #include "Globals.hpp"
 #include "ImguiConfig.hpp"
 #include "GridBuffer.hpp"
-#include "WorkerThread.hpp"
 
 #include <tbb/task_scheduler_init.h>
 #include <tbb/parallel_for.h>
@@ -12,27 +11,33 @@
 
 void display()
 {
+	// we clear the display
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	static bool pause = false;
 	static bool step = false;
 
+	// concurrent vector used to push part of counter
 	static tbb::concurrent_vector<std::array<unsigned int, 4>> concurentCounter;
 	concurentCounter.clear();
 
+	// we reset the global cell counter
 	TCC::Counter[TCC::Medecine] = 0;
 	TCC::Counter[TCC::Cancer] = 0;
 	TCC::Counter[TCC::None] = 0;
 	TCC::Counter[TCC::Healthy] = 0;
 
+	// if we count cells (much more expensive)
 	if (TCC::count)
 	{
+		//Tbb parallel_for
 		tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [&](const tbb::blocked_range<size_t> &r){
 			for (auto i = r.begin(); i < r.end(); ++i)
 			{
 				concurentCounter.push_back(TCC::buffer->computeCancer(i % TCC::windowWidth, i / TCC::windowWidth));
 			}
 		});
+		//We merge counter parts into global counter
 		for (auto &e : concurentCounter)
 		{
 			TCC::Counter[0] += e[0];
@@ -41,6 +46,7 @@ void display()
 			TCC::Counter[3] += e[3];
 		}
 	}
+	// else if we don't count cells (light)
 	else
 	{
 		tbb::parallel_for(tbb::blocked_range<size_t>(0, TCC::windowWidth * TCC::windowHeight, TCC::grainSize), [&](const tbb::blocked_range<size_t> &r){
@@ -51,12 +57,16 @@ void display()
 		});
 	}
 
+	// we swap buffers
 	TCC::buffer->swap();
 
 
 	step = false;
+
+	// we fill the render buffer with the solution
 	TCC::buffer->fillDisplay(*TCC::displayBuffer);
 
+	// we draw the injection radius
 	for (auto i = 0; i < TCC::injectionThickness; ++i)
 	{
 		if (TCC::injectionRadius == 1 && TCC::injectionThickness == 1)
@@ -65,13 +75,16 @@ void display()
 			TCC::displayBuffer->drawCircle(TCC::Position(TCC::mouse_x / TCC::zoom, (TCC::windowHeight - TCC::mouse_y) / TCC::zoom), TCC::injectionRadius + i, TCC::Color(30));
 	}
 
+	// if click, we inject
 	if (TCC::rMouse)
 	{
 		TCC::buffer->inject((unsigned int)(TCC::mouse_x / TCC::zoom), (unsigned int)((TCC::windowHeight - TCC::mouse_y) / TCC::zoom));
 	}
 
+	// we render the render buffer
 	TCC::displayBuffer->render();
 
+	// Gui update
 	ImguiConf::UpdateImGui();
 
 	ImGui::Text("Right click to inject medecine ! \nCancer cells are red, healthy one are green, and medecine is yellow ! \n");
@@ -139,9 +152,15 @@ void display()
 			step = true;
 		}
 	}
+
+	// we render imgui
 	ImGui::Render();
+
+	// we swap opengl buffers
 	glutSwapBuffers();
 }
+
+// Software initialization
 
 void initialize()
 {
@@ -197,8 +216,7 @@ void passiveMouse(int x, int y)
 
 int main(int argc, char **argv)
 {
-	// initialize
-
+	// we initialize tbb's task scheduler
 	tbb::task_scheduler_init initTbb;
 
 	glutInit(&argc, argv);

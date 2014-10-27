@@ -82,12 +82,10 @@
     <ClInclude Include="GridBuffer.hpp" />
     <ClInclude Include="ImguiConfig.hpp" />
     <ClInclude Include="Cell.hpp" />
-    <ClInclude Include="WorkerThread.hpp" />
     <ClInclude Include="Vendors\imgui\imconfig.h" />
     <ClInclude Include="Vendors\imgui\imgui.h" />
     <ClInclude Include="Vendors\imgui\stb_image.h" />
     <ClInclude Include="Vendors\imgui\stb_textedit.h" />
-    <ClInclude Include="ThreadQueue.hpp" />
     <ClInclude Include="Display.hpp" />
     <ClInclude Include="Globals.hpp" />
   </ItemGroup>
